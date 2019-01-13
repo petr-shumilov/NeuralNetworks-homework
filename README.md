@@ -24,6 +24,12 @@ theology  :  0.1795608
 physics  :  0.1578736
 mathematics  :  0.15454437
 ```
+### Results
+Cross-validation:
+```
+Accuracy: 85.95 (+/- 10.24)
+```
+For check it perfrom the `classification/validation.py`. Additionally you can check this log - `./crossvalidation.log`
 ### Start
 ```bash
 $ docker build -t nn .

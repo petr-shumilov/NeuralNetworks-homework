@@ -5,6 +5,7 @@ from keras.models import model_from_json
 from nltk import word_tokenize
 import gensim
 from gensim.models import Word2Vec
+from sklearn.model_selection import KFold
 
 class CNNCategorizer:
     def __init__(self, word2vec_model, train_dict, n_gram, vecsize, nb_filters, max_num_words_at_sentence):
@@ -62,6 +63,38 @@ class CNNCategorizer:
         # flags
         self.model = model
         self.trained = True
+
+    def evaluate(self, splits=10):
+        # prepare data for training 
+        self.category_labels, train_embedvec, indices = self.prepare_trainingdata()
+
+        kfold = KFold(n_splits=splits, shuffle=True, random_state=7)
+        cvscores = []
+        for train, test in kfold.split(train_embedvec):
+            embedvec_train, embedvec_test = train_embedvec[train], train_embedvec[test]
+            indices_train, indices_test = indices[train], indices[test]
+            # create model
+            model = Sequential()
+            model.add(Convolution1D(nb_filter=self.nb_filters,
+                                    filter_length=self.n_gram,
+                                    border_mode='valid',
+                                    activation='relu',
+                                    input_shape=(self.max_num_words_at_sentence, self.vecsize)))
+            model.add(MaxPooling1D(pool_length=self.max_num_words_at_sentence - self.n_gram + 1))
+            model.add(Flatten())
+            model.add(Dense(len(self.category_labels), activation='softmax'))
+            # compile model
+            model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+            # train the model
+            model.fit(embedvec_train, indices_train, epochs=15, batch_size=10)
+            # evaluate the model
+            scores = model.evaluate(embedvec_test, indices_test, verbose=0)
+
+            print("Current accuracy: {0:.2f}".format(scores[1] * 100))
+            cvscores.append(scores[1] * 100)
+            
+        return cvscores
+
 
     def savemodel(self, nameprefix):
         if not self.trained:
